@@ -887,6 +887,85 @@ The course admin shall be able to cancel the use case at any time prior to submi
 **Assumptions:**
 **Open Issues:**
 
+### **UC-SEC-remind-non-submitters: The instructor reviews missing weekly submissions and sends reminders**
+
+**UC ID and Name:** UC-SEC-remind-non-submitters: Review missing weekly submissions and send reminders
+**Created By:** Angel Rivas
+**Date Created:** 2026-10-01
+**Primary Actor:** instructor / course admin
+**Secondary Actors:** student (email recipient), email service
+**Trigger:** The instructor indicates to review missing weekly submissions for a course section.
+**Description:** The instructor reviews separate WAR and peer-evaluation submission statuses for a reporting week and sends private reminders to selected students with actionable missing work.
+
+**Preconditions:**
+- PRE-1. The instructor is authenticated.
+- PRE-2. The selected course section exists and the instructor is authorized to access it under BR-submission-follow-up-access.
+
+**Postconditions:**
+- POST-1. The instructor sees the selected section's submission statuses and the time they were checked.
+- POST-2. For a confirmed send, each selected recipient has a recorded outcome: accepted by the mail service, failed, delivery unknown, skipped with a reason, or not attempted if the batch was interrupted; each attempted artifact has its reminder allowance recorded.
+- POST-3. Submission records are unchanged. A view-only or cancelled execution sends no email.
+
+**Main Success Scenario:**
+1. The instructor opens weekly submission follow-up for a course section.
+2. The system checks authorization and displays the default reporting week and the available week and artifact filters.
+3. The instructor selects a reporting week and WAR, peer evaluation, or both.
+4. The system validates the selection, computes status under the cited business rules, and displays the list described in Associated Information.
+5. The instructor selects one or more students with actionable missing items and requests reminders for those items.
+6. The system displays a preview of each recipient's reminder, its artifact types and deadlines, and the total recipient count, and requests confirmation.
+7. The instructor confirms sending.
+8. Immediately before each recipient's email attempt, the system rechecks authorization, enrollment, account and team status, submission records, submission eligibility, and reminder allowances. It removes items that no longer qualify, reserves the remaining allowances, and sends one private email containing the remaining selected items.
+9. The system records the outcomes, displays totals and per-recipient results, and refreshes the submission list with its check time.
+10. Use case ends.
+
+**Extensions:**
+- **2a. Authentication or authorization fails, including a direct request for another section:**
+  - 2a1. The system refuses access without exposing student records, recipient counts, or reminder history. No email is sent. Use case ends.
+- **3a. The instructor selects an unsupported week or artifact filter:**
+  - 3a1. The system identifies the invalid field and returns to step 3 without querying or displaying student records for that selection.
+- **4a. A student is not assigned to a team or is inactive:**
+  - 4a1. The system displays the corresponding ineligibility reason under BR-submission-follow-up-eligibility and disables reminder selection for that student. Continue at step 5 for other students.
+- **4b. The reporting week is inactive:**
+  - 4b1. The system applies BR-active-weeks and BR-submission-follow-up-eligibility separately to the two artifacts, displaying Not required for peer evaluation and the computed WAR status. Continue at step 5 for actionable items.
+- **4c. A missing artifact's submission window has closed:**
+  - 4c1. The system displays Missing—window closed and disables reminders for that artifact under BR-submission-follow-up-eligibility. Other actionable items remain selectable; continue at step 5.
+- **4d. The student submitted and subsequently deleted required records:**
+  - 4d1. The system recomputes status under BR-submission-follow-up-completion, rather than trusting a past submission event. Continue at step 5 subject to current eligibility and reminder allowances.
+- **4e. There are no enrolled students or no actionable missing items:**
+  - 4e1. The system displays the applicable empty-state explanation and disables sending. Existing non-actionable statuses remain visible. The instructor may return to step 3 or end the use case.
+- **5a. The instructor only wants to view the list, or cancels before step 7:**
+  - 5a1. The use case ends without reserving allowances or sending email.
+- **8a. A selected item was submitted after the list or preview was displayed:**
+  - 8a1. The system omits that item and marks it Skipped—already submitted. Other selected items for that student remain eligible; if none remain, no email is attempted. Continue with the next recipient, then step 9.
+- **8b. The instructor repeats a nudge, or another instructor or the scheduler has consumed the allowance:**
+  - 8b1. The system applies BR-submission-reminder-limit and records Skipped—daily limit for each affected item, including its next eligible date. Other eligible items may still be sent. Continue with the next recipient, then step 9.
+- **8c. A student's eligibility changes or a window closes after preview:**
+  - 8c1. The system skips affected items with the current reason. A newly missing item not included in the confirmed selection is not added to this send. Continue with the next recipient, then step 9.
+- **8d. The mail service rejects an address or definitively fails an email attempt:**
+  - 8d1. The system records Failed for that recipient, logs the failure without email-body or evaluation content, and continues with the remaining recipients. At step 9 it identifies failed recipients to the authorized instructor; BR-submission-reminder-limit governs later attempts.
+- **8e. Authorization is revoked during the batch:**
+  - 8e1. The system stops further sends and refuses further access to student details. Prior attempts remain recorded and cannot be recalled. Use case ends.
+- **4f/8f/9a. A record lookup, outcome recording, or connection fails, or a mail attempt times out:**
+  - 1. The system never treats an unreadable submission status as missing. Before sending, inability to check eligibility or reserve an allowance prevents that attempt.
+  - 2. Confirmed prior outcomes remain recorded. An attempt whose acceptance cannot be determined is recorded as Delivery unknown; its reservation remains consumed. Unattempted recipients are identified as Not attempted when the instructor is authorized to see results.
+  - 3. The system reports the incomplete operation and permits refreshing its recorded results without resending. No automatic batch replay occurs. Use case ends.
+
+**Priority:** High
+**Frequency of Use:** Estimated 1–3 reviews per instructor per section per week; sending is subject to BR-submission-reminder-limit.
+**Business Rules:** BR-submission-follow-up-access, BR-submission-follow-up-week, BR-submission-follow-up-completion, BR-submission-follow-up-eligibility, BR-submission-reminder-limit, BR-section-scoped-access, BR-role-based-access, BR-team-scoped-access, BR-team-assignment-required, BR-student-lifecycle, BR-active-weeks, BR-evaluation-submission-window, BR-evaluation-editable-until-close.
+
+**Associated Information:**
+- List: Show student name and email, team or ineligibility reason, selected reporting-week dates, separate WAR and peer-evaluation statuses, each artifact's configured deadline with time zone, and its latest reminder attempt and outcome. Show Submitted, Missing, Missing—overdue, Missing—window closed, Not required, or the student-level ineligibility reason as applicable. Ineligibility takes precedence; otherwise peer-evaluation Not required takes precedence, then Submitted, then closed-window and overdue distinctions for missing work. Sort by last name, first name, then student identifier. Show all enrolled students so the instructor can distinguish completion from ineligibility; only actionable items are selectable. If no valid rubric is assigned, show peer-evaluation status Unavailable—rubric configuration and disable that reminder rather than inferring completion or absence.
+- Selection: Default to both artifact types and no recipients selected. Selecting a student selects only that student's actionable items within the artifact filter. The instructor may deselect individual items. Manual reminders may be sent before or after the configured due time while eligible; after the due time, use overdue wording.
+- Email: Use subject ProjectPulse Submission Reminder. Address only the individual student's registered email. Include the student's first name, section name, reporting-week date range, outstanding artifact names, and each configured deadline with time zone. Do not claim an overdue deadline is in the future. Escape inserted values. Deliver through the existing email integration (CI-email-notifications); acceptance by the mail service is reported as acceptance, not proof of inbox delivery.
+- Privacy: Apply CO-ferpa to the list, previews, outcomes, and reminder history. Enforce authorization on reads and sends, including supplied student identifiers; reject a selection containing a student outside the selected section without exposing that student's records. Do not place recipients in a shared To/CC list. Logging must not expose submission or evaluation content.
+- Scheduled behavior: FR-NOT-weekly-reminder remains the background trigger, with its existing configuration toggle and section eligibility. For each eligible section, use BR-submission-follow-up-week and the same completion, eligibility, and allowance rules. Consider only artifact types whose configured due day is today. Recheck each student immediately before attempting delivery and build an individual message with only qualifying items; skip the student if none remain. Preserve isolation of mail failures per recipient and other failures per section. This Associated Information narrows the existing FR's instruction to email each student: for this feature, only students with qualifying outstanding items receive email.
+- Failure integrity: Email is an external effect that cannot be rolled back. Preserve attempt reservations and known outcomes across interrupted requests; an unresolved reserved attempt is treated as Delivery unknown and is not retried that day. A submission committed before the final eligibility check suppresses its reminder; a submission committed after that check may cross an email already in progress. Refreshing results does not repeat sending.
+
+**Related Use Cases:** UC-WAR-manage-activities, UC-WAR-team-war-report, UC-EVA-submit-evaluation.
+**Assumptions:** The existing section due-day/time configuration and application time zone are available. Missing due configuration makes the affected artifact unavailable for reminders and is reported to the instructor.
+**Open Issues:** None for this use case.
+
 ## **Team**
 
 ### **UC-TEA-find-teams: The course admin/instructor finds teams**
